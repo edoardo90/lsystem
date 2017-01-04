@@ -1,10 +1,7 @@
 module Main where
 import Graphics.Gloss
 
-data Var = X | F | Plus | Minus | Lf | Rt deriving (Eq)
--- variables : X F
--- constants : + − [ ]
-
+data Var = Leaf | Row | Lf | Rt deriving (Eq)
 
 data Turtle = Turtle { position:: (Float, Float), angle:: Float} deriving (Show)
 
@@ -21,7 +18,7 @@ type Q a = [a]
 
 push :: a -> Q a -> Q a
 push  x q  = x : q
-
+ 
 
 pop :: Q a -> (Q a, a)
 pop q = (tail q, head q)
@@ -35,40 +32,28 @@ instance Changer Var where
 
   newPosition var config =
     case var of
-      F  ->  goOn config
+      Leaf  ->  goOn config
+      Row   ->  goOn config
       Rt -> let oldHistory =  history config
                 (_, firstHistory) =  pop oldHistory
             in  position firstHistory
       Lf -> position $ graphic config
-      X  -> position $ graphic config
-      Plus  -> position $ graphic config
-      Minus -> position $ graphic config
       where goOn config = let rotation = angle    $  graphic config
                               (x,y) =      position $  graphic config
                               (x', y') =     (x + branch * cos rotation, y + branch * sin rotation)
                           in  (x', y')
--- Here, F means "draw forward",
--- The square bracket "[" corresponds to saving the current values
--- for position and angle, which are restored
--- when the corresponding "]" is executed.
 
-  newRotation Rt config = let oldHistory =  history config
-                              (_, firstHistory) =  pop oldHistory
-                          in  angle firstHistory
-
-  newRotation Minus config =
+  newRotation Lf config =
       let rotation = angle $ graphic config
-      in  rotation + 25 * (pi / 180)
+      in  rotation + pi / 4
 
-  newRotation Plus config =
-      let rotation = angle $ graphic config
-      in  (rotation - 25 * (pi / 180))
---  − means "turn left 25°",
---  + means "turn right 25°".
-
+  newRotation Rt config =
+      let oldHistory =  history config
+          (_, firstHistory) = pop oldHistory
+          rotation = angle firstHistory
+      in  (rotation - pi / 4)
 
   newRotation _ config = angle $ graphic  config
-
 
   newHistory Rt config =
       let oldHistory =  history config
@@ -85,19 +70,13 @@ instance Changer Var where
   newHistory _ config = history config
 
 axiom :: [Var]
-axiom = [X]
--- start  : X
+axiom = [Leaf]
 
 transformVar :: Var -> [Var]
-transformVar X =  [F, Minus, Lf, Lf, X, Rt, Plus, X, Rt, Plus, F, Lf, Plus, F, X, Rt,Minus,X]
---          (X →   F  −      [    [  X   ]   +    X   ]   +    F   [   +    F  X   ]  −   X
-transformVar F = [F, F]
---           (F → FF)
+transformVar Row =  [Row, Row]
+transformVar Leaf = [Row, Lf, Leaf, Rt, Leaf]
 transformVar Lf = [Lf]
 transformVar Rt = [Rt]
-transformVar Minus = [Minus]
-transformVar Plus = [Plus]
-
 
 transformList :: [Var] -> [Var]
 transformList  = concatMap transformVar
@@ -137,7 +116,7 @@ noSameDest (seg:segs) = seg : noSameDest (filter (noSameDest' seg) segs )
 noSameDest [] =  []
 
 
-colors =  [Color (makeColorI 100 240 100 255)] --[Color green] -- ++
+colors = [Color green, Color red, Color white] -- ++
 moreColors =  [ Color yellow, Color blue, Color magenta, Color cyan, Color rose,
  Color orange]
 
@@ -146,16 +125,14 @@ coloredLines n = Pictures $  map (\(color, line) -> color line ) $ zip colors' m
   where myLines = map Line $ (noSameDest (nearCouples  (positionsLevel n)))
 
 branch = 6
-t0 = Turtle (-400, -800) (25 * pi / 180)
+t0 = Turtle (0,-1000) (pi/2)
 c0 = Config t0 []
 
 
-main = display (InWindow "Nice Window" (1400, 1400) (20, 20)) black (coloredLines 6)
+main = display (InWindow "Nice Window" (1400, 1400) (20, 20)) black (coloredLines 8)
 
 instance Show Var where
-  show F =      "0"
-  show X =      "X"
-  show Plus  =  "+"
-  show Minus  = "-"
-  show Lf   =   "["
-  show Rt   =   "]"
+  show Leaf = "0"
+  show Row  = "1"
+  show Lf   = "["
+  show Rt   = "]"
